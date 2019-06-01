@@ -27,14 +27,15 @@ func dirFileNames(dir string) ([]string, error) {
 	return names, nil
 }
 
-type dataPair struct {
-	csv  string
-	json string
+type dataPath struct {
+	route string
+	csv   string
+	json  string
 }
 
-// matchDataPairs tries to match up dataPairs given a list of paths
+// matchDataPaths tries to match up dataPairs given a list of paths
 // this will error if a CSV file is missing a corresponding JSON schema.
-func matchDataPairs(root string, paths []string) ([]dataPair, error) {
+func matchDataPaths(root string, paths []string) ([]dataPath, error) {
 	var csvs []string
 	var jsons []string
 	for _, path := range paths {
@@ -45,15 +46,16 @@ func matchDataPairs(root string, paths []string) ([]dataPair, error) {
 			jsons = append(jsons, path[:len(path)-len(".json")])
 		}
 	}
-	var results []dataPair
+	var results []dataPath
 	for _, csv := range csvs {
 		found := false
 		for _, json := range jsons {
 			if csv == json {
 				found = true
+				route := csv
 				csv := fmt.Sprintf("%s/%s.csv", root, csv)
 				json := fmt.Sprintf("%s/%s.json", root, json)
-				results = append(results, dataPair{csv, json})
+				results = append(results, dataPath{route, csv, json})
 			}
 		}
 		if !found {
@@ -171,7 +173,7 @@ func readCSVData(path string, schema *Schema) (*CSVData, error) {
 }
 
 // jsonNth returns the nth row of data as a JSON byte string.
-func (data *CSVData) jsonNth(index int) ([]byte, error) {
+func (data CSVData) jsonNth(index int) ([]byte, error) {
 	if index < 0 || index >= len(data.rows) {
 		return nil, fmt.Errorf("index %d out of bounds", index)
 	}
@@ -206,6 +208,22 @@ func (data *CSVData) jsonAll() []byte {
 	return json
 }
 
+// DataRoutes matches up route paths to CSVData
+type DataRoutes struct {
+	routes map[string]CSVData
+}
+
+// NewDataRoutes creates a new DataRoutes struct
+// This is necessary since the zero value can't be used.
+func NewDataRoutes() *DataRoutes {
+	return &DataRoutes{routes: make(map[string]CSVData)}
+}
+
+// Insert adds a new batch of CSVData
+func (routes *DataRoutes) Insert(route string, data CSVData) {
+	routes.routes[route] = data
+}
+
 func main() {
 	args := os.Args[1:]
 	dir := args[0]
@@ -213,12 +231,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dataPairs, err := matchDataPairs(dir, fileNames)
+	dataPaths, err := matchDataPaths(dir, fileNames)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, pair := range dataPairs {
-		raw, err := readSchema(pair.json)
+	routes := NewDataRoutes()
+	for _, path := range dataPaths {
+		raw, err := readSchema(path.json)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -226,12 +245,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		data, err := readCSVData(pair.csv, schema)
+		data, err := readCSVData(path.csv, schema)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(data.rows)
-		json := data.jsonAll()
-		fmt.Println(string(json))
+		routes.Insert(path.route, *data)
 	}
+	fmt.Println(*routes)
 }
