@@ -274,7 +274,17 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		// this removes the first /
 		route := r.URL.Path[1:]
-		data, err := routes.GetAll(route)
+		splits := strings.Split(route, "/")
+		lastPart := splits[len(splits)-1]
+		index, indexErr := strconv.ParseInt(lastPart, 10, 32)
+		var data []byte
+		var err error
+		if indexErr != nil {
+			data, err = routes.GetAll(route)
+		} else {
+			route := route[:len(route)-len(lastPart)-1]
+			data, err = routes.GetNth(route, int(index))
+		}
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, `{"error": "%v"}`, err)
