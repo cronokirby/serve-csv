@@ -60,15 +60,15 @@ func matchDataPairs(root string, paths []string) ([]dataPair, error) {
 	return results, nil
 }
 
-type Schema struct {
+type RawSchema struct {
 	Fields []string
 	Types  []string
 }
 
 // readSchema attempts to read a JSON file's CSV schema.
 // This can fail because of IO, or because of an invalid schema.
-func readSchema(path string) (*Schema, error) {
-	var schema Schema
+func readSchema(path string) (*RawSchema, error) {
+	var schema RawSchema
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -77,6 +77,43 @@ func readSchema(path string) (*Schema, error) {
 		return nil, err
 	}
 	return &schema, nil
+}
+
+type SchemaType int
+
+const (
+	INT SchemaType = iota
+	STRING
+)
+
+type Schema struct {
+	Fields []string
+	Types  []SchemaType
+}
+
+// validate a schema, returning nil if no errors occurred.
+// This will check that the schema itself is valid, not whether
+// or not it applies to the given CSV file.
+func (schema *RawSchema) validate() (*Schema, error) {
+	fieldsLen := len(schema.Fields)
+	typesLen := len(schema.Types)
+	if fieldsLen != typesLen {
+		return nil, fmt.Errorf("Mismatched fields and types lengths: %d %d", fieldsLen, typesLen)
+	}
+	var types []SchemaType
+	for _, typeString := range schema.Types {
+		var validType SchemaType
+		switch typeString {
+		case "int":
+			validType = INT
+		case "string":
+			validType = STRING
+		default:
+			return nil, fmt.Errorf("Unrecognized schema type: %s", typeString)
+		}
+		types = append(types, validType)
+	}
+	return &Schema{schema.Fields, types}, nil
 }
 
 func main() {
@@ -91,7 +128,11 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, pair := range dataPairs {
-		schema, err := readSchema(pair.json)
+		raw, err := readSchema(pair.json)
+		if err != nil {
+			log.Fatal(err)
+		}
+		schema, err := raw.validate()
 		if err != nil {
 			log.Fatal(err)
 		}
