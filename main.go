@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 // dirFileNames returns a list of file names in a given directory
@@ -21,6 +22,38 @@ func dirFileNames(dir string) ([]string, error) {
 	return names, nil
 }
 
+type dataPair struct {
+	csv  string
+	json string
+}
+
+func matchDataPairs(paths []string) ([]dataPair, error) {
+	var csvs []string
+	var jsons []string
+	for _, path := range paths {
+		if strings.HasSuffix(path, ".csv") {
+			csvs = append(csvs, path[:len(path)-len(".csv")])
+		}
+		if strings.HasSuffix(path, ".json") {
+			jsons = append(jsons, path[:len(path)-len(".json")])
+		}
+	}
+	var results []dataPair
+	for _, csv := range csvs {
+		found := false
+		for _, json := range jsons {
+			if csv == json {
+				found = true
+				results = append(results, dataPair{csv + ".csv", json + ".json"})
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("CSV file %s has no corresponding %s.json schema", csv, csv)
+		}
+	}
+	return results, nil
+}
+
 func main() {
 	args := os.Args[1:]
 	dir := args[0]
@@ -28,5 +61,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(fileNames)
+	dataPairs, err := matchDataPairs(fileNames)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(dataPairs)
 }
