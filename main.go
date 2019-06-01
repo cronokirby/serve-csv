@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -224,6 +225,24 @@ func (routes *DataRoutes) Insert(route string, data CSVData) {
 	routes.routes[route] = data
 }
 
+// GetAll returns a JSON blob holding all the rows of a route
+func (routes *DataRoutes) GetAll(route string) ([]byte, error) {
+	data, ok := routes.routes[route]
+	if !ok {
+		return nil, fmt.Errorf("Unknown route: %s", route)
+	}
+	return data.jsonAll(), nil
+}
+
+// GetNth returns a JSON blob for the nth item of a route
+func (routes *DataRoutes) GetNth(route string, index int) ([]byte, error) {
+	data, ok := routes.routes[route]
+	if !ok {
+		return nil, fmt.Errorf("Unknown route: %s", route)
+	}
+	return data.jsonNth(index)
+}
+
 func main() {
 	args := os.Args[1:]
 	dir := args[0]
@@ -251,5 +270,16 @@ func main() {
 		}
 		routes.Insert(path.route, *data)
 	}
-	fmt.Println(*routes)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// this removes the first /
+		route := r.URL.Path[1:]
+		data, err := routes.GetAll(route)
+		if err != nil {
+			fmt.Fprintf(w, `{"error": "%v"}`, err)
+			return
+		}
+		w.Write(data)
+	})
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
