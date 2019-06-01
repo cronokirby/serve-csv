@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -116,6 +119,47 @@ func (schema *RawSchema) validate() (*Schema, error) {
 	return &Schema{schema.Fields, types}, nil
 }
 
+type CSVData struct {
+	rows   [][]interface{}
+	Schema *Schema
+}
+
+func readCSVData(path string, schema *Schema) (*CSVData, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	reader := csv.NewReader(bufio.NewReader(file))
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	rows := make([][]interface{}, 0, len(records))
+	for rowI, record := range records {
+		recordLen := len(record)
+		schemaLen := len(schema.Types)
+		if recordLen != schemaLen {
+			return nil, fmt.Errorf("row %d: bad record length, expected %d, got %d", rowI, schemaLen, recordLen)
+		}
+		row := make([]interface{}, len(schema.Types))
+		for i, typ := range schema.Types {
+			switch typ {
+			case INT:
+				num, err := strconv.ParseInt(record[i], 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("row %d: %v", rowI, err)
+				}
+				row[i] = num
+			case STRING:
+				row[i] = record[i]
+			}
+		}
+		rows = append(rows, row)
+	}
+	data := CSVData{rows, schema}
+	return &data, nil
+}
+
 func main() {
 	args := os.Args[1:]
 	dir := args[0]
@@ -136,6 +180,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(schema)
+		data, err := readCSVData(pair.csv, schema)
+		fmt.Println(data.rows)
 	}
 }
