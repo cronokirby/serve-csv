@@ -276,6 +276,7 @@ func main() {
 		route := r.URL.Path[1:]
 		data, err := routes.GetAll(route)
 		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, `{"error": "%v"}`, err)
 			return
 		}
