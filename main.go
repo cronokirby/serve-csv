@@ -56,8 +56,8 @@ func matchDataPaths(root string, paths []string) ([]dataPath, error) {
 			if csv == json {
 				found = true
 				route := csv
-				csv := fmt.Sprintf("%s/%s.csv", root, csv)
-				json := fmt.Sprintf("%s/%s.json", root, json)
+				csv := fmt.Sprintf("%s%s.csv", root, csv)
+				json := fmt.Sprintf("%s%s.json", root, json)
 				results = append(results, dataPath{route, csv, json})
 			}
 		}
@@ -154,7 +154,7 @@ func readCSVData(path string, schema *Schema) (*CSVData, error) {
 		recordLen := len(record)
 		schemaLen := len(schema.Types)
 		if recordLen != schemaLen {
-			return nil, fmt.Errorf("row %d: bad record length, expected %d, got %d", rowI, schemaLen, recordLen)
+			return nil, fmt.Errorf("%s: row %d: bad record length, expected %d, got %d", path, rowI, schemaLen, recordLen)
 		}
 		row := make([]interface{}, len(schema.Types))
 		for i, typ := range schema.Types {
@@ -162,7 +162,7 @@ func readCSVData(path string, schema *Schema) (*CSVData, error) {
 			case INT:
 				num, err := strconv.ParseInt(record[i], 10, 64)
 				if err != nil {
-					return nil, fmt.Errorf("row %d: %v", rowI, err)
+					return nil, fmt.Errorf("%s: row %d: %v", path, rowI, err)
 				}
 				row[i] = num
 			case STRING:
@@ -268,7 +268,7 @@ func main() {
 		}
 		schema, err := raw.validate()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(fmt.Sprintf("Error validating %s: %v", path.json, err))
 		}
 		data, err := readCSVData(path.csv, schema)
 		if err != nil {
