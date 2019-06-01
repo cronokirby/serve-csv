@@ -63,6 +63,7 @@ func matchDataPairs(root string, paths []string) ([]dataPair, error) {
 	return results, nil
 }
 
+// RawSchema holds the raw structure of a schema
 type RawSchema struct {
 	Fields []string
 	Types  []string
@@ -82,13 +83,19 @@ func readSchema(path string) (*RawSchema, error) {
 	return &schema, nil
 }
 
+// SchemaType represents the valid types for CSV fields
 type SchemaType int
 
 const (
+	// INT represents an integer field
 	INT SchemaType = iota
+	// STRING represents a string field
 	STRING
 )
 
+// Schema holds a set of Fields and corresponding Types
+// Unlike RawSchema, we've made sure these have the same length,
+// and that all the declared types are valid.
 type Schema struct {
 	Fields []string
 	Types  []SchemaType
@@ -119,11 +126,14 @@ func (schema *RawSchema) validate() (*Schema, error) {
 	return &Schema{schema.Fields, types}, nil
 }
 
+// CSVData holds the data contained in a CSV file.
 type CSVData struct {
 	rows   [][]interface{}
 	Schema *Schema
 }
 
+// readCSVData will read the data in a file, checking it against a schema
+// This will return an error as soon as any row doesn't match the given schema.
 func readCSVData(path string, schema *Schema) (*CSVData, error) {
 	file, err := os.Open(path)
 	if err != nil {
