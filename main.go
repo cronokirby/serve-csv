@@ -170,6 +170,42 @@ func readCSVData(path string, schema *Schema) (*CSVData, error) {
 	return &data, nil
 }
 
+// jsonNth returns the nth row of data as a JSON byte string.
+func (data *CSVData) jsonNth(index int) ([]byte, error) {
+	if index < 0 || index >= len(data.rows) {
+		return nil, fmt.Errorf("index %d out of bounds", index)
+	}
+	row := data.rows[index]
+	mp := make(map[string]interface{})
+	for i, val := range row {
+		mp[data.Schema.Fields[i]] = val
+	}
+	json, err := json.Marshal(mp)
+	// If we can't encode the json, this is a problem with how our schema is designed
+	if err != nil {
+		panic(err)
+	}
+	return json, nil
+}
+
+// jsonAll returns a JSON array containing all the data
+func (data *CSVData) jsonAll() []byte {
+	rows := make([]map[string]interface{}, 0, len(data.rows))
+	for _, row := range data.rows {
+		mp := make(map[string]interface{})
+		for i, val := range row {
+			mp[data.Schema.Fields[i]] = val
+		}
+		rows = append(rows, mp)
+	}
+	json, err := json.Marshal(rows)
+	// We should always be able to encode our json
+	if err != nil {
+		panic(err)
+	}
+	return json
+}
+
 func main() {
 	args := os.Args[1:]
 	dir := args[0]
@@ -191,6 +227,11 @@ func main() {
 			log.Fatal(err)
 		}
 		data, err := readCSVData(pair.csv, schema)
+		if err != nil {
+			log.Fatal(err)
+		}
 		fmt.Println(data.rows)
+		json := data.jsonAll()
+		fmt.Println(string(json))
 	}
 }
