@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -27,7 +29,9 @@ type dataPair struct {
 	json string
 }
 
-func matchDataPairs(paths []string) ([]dataPair, error) {
+// matchDataPairs tries to match up dataPairs given a list of paths
+// this will error if a CSV file is missing a corresponding JSON schema.
+func matchDataPairs(root string, paths []string) ([]dataPair, error) {
 	var csvs []string
 	var jsons []string
 	for _, path := range paths {
@@ -44,7 +48,9 @@ func matchDataPairs(paths []string) ([]dataPair, error) {
 		for _, json := range jsons {
 			if csv == json {
 				found = true
-				results = append(results, dataPair{csv + ".csv", json + ".json"})
+				csv := fmt.Sprintf("%s/%s.csv", root, csv)
+				json := fmt.Sprintf("%s/%s.json", root, json)
+				results = append(results, dataPair{csv, json})
 			}
 		}
 		if !found {
@@ -54,6 +60,25 @@ func matchDataPairs(paths []string) ([]dataPair, error) {
 	return results, nil
 }
 
+type Schema struct {
+	Fields []string
+	Types  []string
+}
+
+// readSchema attempts to read a JSON file's CSV schema.
+// This can fail because of IO, or because of an invalid schema.
+func readSchema(path string) (*Schema, error) {
+	var schema Schema
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(bytes, &schema); err != nil {
+		return nil, err
+	}
+	return &schema, nil
+}
+
 func main() {
 	args := os.Args[1:]
 	dir := args[0]
@@ -61,9 +86,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dataPairs, err := matchDataPairs(fileNames)
+	dataPairs, err := matchDataPairs(dir, fileNames)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(dataPairs)
+	for _, pair := range dataPairs {
+		schema, err := readSchema(pair.json)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(schema)
+	}
 }
