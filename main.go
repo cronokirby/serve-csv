@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/alecthomas/kingpin"
 )
 
 // dirFileNames returns a list of file names in a given directory
@@ -243,14 +245,18 @@ func (routes *DataRoutes) GetNth(route string, index int) ([]byte, error) {
 	return data.jsonNth(index)
 }
 
+var (
+	dir  = kingpin.Arg("dir", "The directory to serve").Required().String()
+	port = kingpin.Flag("port", "The port to listen on").Default("1234").Short('p').String()
+)
+
 func main() {
-	args := os.Args[1:]
-	dir := args[0]
-	fileNames, err := dirFileNames(dir)
+	kingpin.Parse()
+	fileNames, err := dirFileNames(*dir)
 	if err != nil {
 		log.Fatal(err)
 	}
-	dataPaths, err := matchDataPaths(dir, fileNames)
+	dataPaths, err := matchDataPaths(*dir, fileNames)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -292,5 +298,6 @@ func main() {
 		}
 		w.Write(data)
 	})
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Printf("Listening on port %s", *port)
+	log.Fatal(http.ListenAndServe(":"+*port, nil))
 }
